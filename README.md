@@ -1,5 +1,7 @@
 PulseWeaveVerse 🧵🌍
 
+Prototype Demo: https://poe.com/PulseWeaveVerse
+
 PulseWeaveVerse is a multi-modal data experience that weaves together human sentiment and machine infrastructure signals into a single living system—expressed as art, analytics, and immersive worlds.
 
 It is built to demonstrate how unrelated data sources, when woven together, can reveal invisible global dynamics.
