@@ -2,6 +2,38 @@ PulseWeaveVerse 🧵🌍
 
 Prototype Demo: https://poe.com/PulseWeaveVerse
 
+Project Overview
+PulseWeaveVerse is a futuristic data intelligence dashboard that visualizes the relationship between human sentiment and infrastructure performance across global regions.
+
+Three Modes:
+
+SENSE Mode - Generative data art visualization with particle systems, flowing waves, and real-time metric displays
+DECIDE Mode - Operational dashboard with KPI cards, time-series charts, correlation matrix, and alert system
+EXPLORE Mode - Interactive 3D globe (Three.js) showing regional data with selectable data layers
+Key Features
+Feature	Description
+Real-time Data Simulation	DataFabric system simulates live sentiment, latency, traffic, and uptime metrics
+Generative Art Canvas	Particle system and wave animations that respond to data values
+Correlation Matrix	Interactive 4x4 matrix showing metric correlations with color-coded cells
+3D Globe	Three.js-powered interactive globe with regional markers and pulse animations
+AI Insights	Integrates with Poe API (GPT-5.1) for intelligent data analysis, with local fallback
+Responsive Design	Adapts to mobile/tablet with collapsible panels and reorganized grid
+Dark Mode	Full dark theme with system preference detection
+Accessibility	ARIA labels, keyboard navigation (Alt+1/2/3), focus states
+Tech Stack
+HTML5/CSS3 - Semantic markup with CSS Grid/Flexbox
+Vanilla JavaScript - No framework dependencies
+Three.js - 3D globe visualization
+Google Fonts - JetBrains Mono (monospace) + Outfit (UI)
+CSS Custom Properties - Theming with accent colors and transitions
+File Details
+Single file architecture: index.html (2,405 lines)
+
+Lines 1-1106: CSS styles with dark mode support
+Lines 1107-1362: HTML structure with all three modes
+Lines 1364-2403: JavaScript modules (DataFabric, SenseMode, DecideMode, ExploreMode, AIEngine, App)
+The application is fully self-contained and ready to run as a Poe Canvas App!
+
 PulseWeaveVerse is a multi-modal data experience that weaves together human sentiment and machine infrastructure signals into a single living system—expressed as art, analytics, and immersive worlds.
 
 It is built to demonstrate how unrelated data sources, when woven together, can reveal invisible global dynamics.
