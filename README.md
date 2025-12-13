@@ -29,11 +29,6 @@ CSS Custom Properties - Theming with accent colors and transitions
 File Details
 Single file architecture: index.html (2,405 lines)
 
-Lines 1-1106: CSS styles with dark mode support
-Lines 1107-1362: HTML structure with all three modes
-Lines 1364-2403: JavaScript modules (DataFabric, SenseMode, DecideMode, ExploreMode, AIEngine, App)
-The application is fully self-contained and ready to run as a Poe Canvas App!
-
 PulseWeaveVerse is a multi-modal data experience that weaves together human sentiment and machine infrastructure signals into a single living system—expressed as art, analytics, and immersive worlds.
 
 It is built to demonstrate how unrelated data sources, when woven together, can reveal invisible global dynamics.
