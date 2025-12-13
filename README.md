@@ -1493,6 +1493,2220 @@ Auto-regenerated insights and summaries
             senseAnimation: null,
             globeScene: null,
             particles: [],
+            liveDataEnabled: false,
+            liveDataInterval: null,
+            regions: [
+                { name: 'North America', sentiment: 78, trend: '+4.2%', color: '#00f5d4' },
+                { name: 'Europe', sentiment: 65, trend: '+1.8%', color: '#3a86ff' },
+                { name: 'Asia Pacific', sentiment: 82, trend: '+6.5%', color: '#8338ec' },
+                { name: 'Latin America', sentiment: 58, trend: '-2.1%', color: '#fb5607' },
+                { name: 'Middle East', sentiment: 45, trend: '-5.3%', color: '#ff006e' }
+            ],
+            alerts: [
+                { type: 'critical', title: 'Viral Negative Thread', desc: 'Tech sector experiencing rapid sentiment decline', time: '2m ago' },
+                { type: 'critical', title: 'Bot Activity Detected', desc: 'Unusual pattern in finance discussions', time: '5m ago' },
+                { type: 'warning', title: 'Trending Topic Shift', desc: 'Entertainment overtaking politics in volume', time: '12m ago' },
+                { type: 'info', title: 'New Influencer Activity', desc: 'Major account discussing your brand', time: '18m ago' },
+                { type: 'warning', title: 'Regional Anomaly', desc: 'APAC sentiment spiking unexpectedly', time: '25m ago' }
+            ]
+        };
+
+        // Live Data System using Poe Embed API
+        function initLiveData() {
+            if (!window.Poe) {
+                console.log('Poe API not available - using simulated data');
+                startSimulatedLiveData();
+                return;
+            }
+
+            // Register handler for live data responses
+            window.Poe.registerHandler('live-data-handler', (result, context) => {
+                const msg = result.responses[0];
+
+                if (msg.status === 'error') {
+                    console.error('Live data error:', msg.statusText);
+                    updateLiveIndicator(false, 'ERROR');
+                    return;
+                }
+
+                if (msg.status === 'complete') {
+                    try {
+                        const data = JSON.parse(msg.content);
+                        applyLiveData(data);
+                        updateLiveIndicator(true, 'SYNCED');
+                    } catch (e) {
+                        // If not JSON, try to extract numbers from the response
+                        const numbers = msg.content.match(/\d+\.?\d*/g);
+                        if (numbers && numbers.length >= 4) {
+                            const data = {
+                                sentiment: parseFloat(numbers[0]) || 74.2,
+                                volume: numbers[1] ? parseFloat(numbers[1]) + 'M' : '2.4M',
+                                engagement: numbers[2] ? parseFloat(numbers[2]) + 'K' : '156K',
+                                alerts: parseInt(numbers[3]) || 7
+                            };
+                            applyLiveData(data);
+                            updateLiveIndicator(true, 'SYNCED');
+                        }
+                    }
+                }
+            });
+
+            state.liveDataEnabled = true;
+            fetchLiveData();
+
+            // Refresh every 30 seconds
+            state.liveDataInterval = setInterval(fetchLiveData, 30000);
+        }
+
+        async function fetchLiveData() {
+            if (!window.Poe) return;
+
+            updateLiveIndicator(true, 'FETCHING');
+
+            const prompt = `Generate realistic social media analytics data. Respond ONLY with valid JSON in this exact format, no other text:
+{"sentiment": <number 50-95>, "volume": "<number 1-5>M", "engagement": "<number 100-300>K", "alerts": <number 3-12>, "regions": [{"name": "North America", "sentiment": <50-95>, "trend": "<+/->X.X%"}, {"name": "Europe", "sentiment": <50-95>, "trend": "<+/->X.X%"}, {"name": "Asia Pacific", "sentiment": <50-95>, "trend": "<+/->X.X%"}, {"name": "Latin America", "sentiment": <50-95>, "trend": "<+/->X.X%"}, {"name": "Middle East", "sentiment": <50-95>, "trend": "<+/->X.X%"}], "newAlert": {"type": "<critical|warning|info>", "title": "<short title>", "desc": "<brief description>"}}`;
+
+            try {
+                await window.Poe.sendUserMessage(`@Gemini-2.5-Flash ${prompt}`, {
+                    handler: 'live-data-handler',
+                    stream: false,
+                    openChat: false
+                });
+            } catch (err) {
+                console.error('Failed to fetch live data:', err);
+                updateLiveIndicator(false, 'ERROR');
+                // Fall back to simulated data
+                simulateLiveDataUpdate();
+            }
+        }
+
+        function applyLiveData(data) {
+            // Update KPIs
+            if (data.sentiment) {
+                const sentimentEl = document.getElementById('kpi-sentiment');
+                animateValue(sentimentEl, parseFloat(sentimentEl.textContent), data.sentiment, 1000);
+            }
+            if (data.volume) {
+                document.getElementById('kpi-volume').textContent = data.volume;
+            }
+            if (data.engagement) {
+                document.getElementById('kpi-engagement').textContent = data.engagement;
+            }
+            if (data.alerts) {
+                document.getElementById('kpi-alerts').textContent = data.alerts;
+            }
+
+            // Update regions if provided
+            if (data.regions && Array.isArray(data.regions)) {
+                const colors = ['#00f5d4', '#3a86ff', '#8338ec', '#fb5607', '#ff006e'];
+                data.regions.forEach((region, i) => {
+                    if (state.regions[i]) {
+                        state.regions[i].sentiment = region.sentiment || state.regions[i].sentiment;
+                        state.regions[i].trend = region.trend || state.regions[i].trend;
+                        state.regions[i].color = colors[i];
+                    }
+                });
+                initRegionList();
+            }
+
+            // Add new alert if provided
+            if (data.newAlert && data.newAlert.title) {
+                const newAlert = {
+                    type: data.newAlert.type || 'info',
+                    title: data.newAlert.title,
+                    desc: data.newAlert.desc || 'New activity detected',
+                    time: 'Just now'
+                };
+                state.alerts.unshift(newAlert);
+                if (state.alerts.length > 8) state.alerts.pop();
+                updateAlertsList();
+            }
+
+            showToast('Live data updated');
+        }
+
+        function animateValue(element, start, end, duration) {
+            const startTime = performance.now();
+            const diff = end - start;
+
+            function update(currentTime) {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const easeProgress = 1 - Math.pow(1 - progress, 3);
+                const current = start + diff * easeProgress;
+                element.textContent = current.toFixed(1);
+
+                if (progress < 1) {
+                    requestAnimationFrame(update);
+                }
+            }
+            requestAnimationFrame(update);
+        }
+
+        function updateAlertsList() {
+            const alertsList = document.getElementById('alerts-list');
+            alertsList.innerHTML = '';
+            state.alerts.forEach(alert => {
+                const item = document.createElement('div');
+                item.className = `alert-item ${alert.type}`;
+                item.innerHTML = `
+                    <div class="alert-icon">${alert.type === 'critical' ? '!' : alert.type === 'warning' ? '⚠' : 'i'}</div>
+                    <div class="alert-content">
+                        <div class="alert-title">${alert.title}</div>
+                        <div class="alert-desc">${alert.desc}</div>
+                    </div>
+                    <div class="alert-time">${alert.time}</div>
+                `;
+                alertsList.appendChild(item);
+            });
+        }
+
+        function updateLiveIndicator(connected, status) {
+            const indicator = document.querySelector('.live-indicator');
+            const dot = indicator.querySelector('.live-dot');
+            const text = indicator.querySelector('span');
+
+            if (connected) {
+                dot.style.background = 'var(--accent-pulse)';
+                dot.style.boxShadow = '0 0 8px var(--accent-pulse)';
+                indicator.style.borderColor = 'rgba(0, 245, 212, 0.2)';
+                indicator.style.color = 'var(--accent-pulse)';
+            } else {
+                dot.style.background = 'var(--accent-heat)';
+                dot.style.boxShadow = '0 0 8px var(--accent-heat)';
+                indicator.style.borderColor = 'rgba(255, 0, 110, 0.2)';
+                indicator.style.color = 'var(--accent-heat)';
+            }
+
+            text.textContent = status || (connected ? 'LIVE DATA' : 'OFFLINE');
+        }
+
+        function startSimulatedLiveData() {
+            state.liveDataEnabled = true;
+            simulateLiveDataUpdate();
+            state.liveDataInterval = setInterval(simulateLiveDataUpdate, 15000);
+        }
+
+        function simulateLiveDataUpdate() {
+            // Generate realistic fluctuating values
+            const sentiment = 60 + Math.random() * 30;
+            const volume = (1.5 + Math.random() * 2.5).toFixed(1) + 'M';
+            const engagement = Math.floor(100 + Math.random() * 150) + 'K';
+            const alerts = Math.floor(3 + Math.random() * 8);
+
+            // Update KPIs with animation
+            const sentimentEl = document.getElementById('kpi-sentiment');
+            animateValue(sentimentEl, parseFloat(sentimentEl.textContent), sentiment, 800);
+            document.getElementById('kpi-volume').textContent = volume;
+            document.getElementById('kpi-engagement').textContent = engagement;
+            document.getElementById('kpi-alerts').textContent = alerts;
+
+            // Update regions with slight variations
+            state.regions.forEach(region => {
+                region.sentiment = Math.max(30, Math.min(95, region.sentiment + (Math.random() - 0.5) * 10));
+                const change = (Math.random() - 0.5) * 5;
+                region.trend = (change >= 0 ? '+' : '') + change.toFixed(1) + '%';
+            });
+            initRegionList();
+
+            // Occasionally add a new alert
+            if (Math.random() > 0.7) {
+                const alertTypes = ['critical', 'warning', 'info'];
+                const alertTitles = [
+                    { type: 'critical', title: 'Sentiment Spike Detected', desc: 'Unusual activity in tech discussions' },
+                    { type: 'warning', title: 'Volume Surge', desc: 'Trending topic gaining momentum' },
+                    { type: 'info', title: 'New Trend Emerging', desc: 'Positive mentions increasing steadily' },
+                    { type: 'warning', title: 'Regional Shift', desc: 'APAC engagement changing rapidly' },
+                    { type: 'critical', title: 'Viral Content Alert', desc: 'High-impact post spreading fast' }
+                ];
+                const randomAlert = alertTitles[Math.floor(Math.random() * alertTitles.length)];
+                const newAlert = {
+                    type: randomAlert.type,
+                    title: randomAlert.title,
+                    desc: randomAlert.desc,
+                    time: 'Just now'
+                };
+                state.alerts.unshift(newAlert);
+                if (state.alerts.length > 8) state.alerts.pop();
+                updateAlertsList();
+            }
+
+            updateLiveIndicator(true, 'LIVE DATA');
+        }
+
+        // Make live indicator clickable to toggle/refresh
+        document.querySelector('.live-indicator').addEventListener('click', () => {
+            if (state.liveDataEnabled) {
+                if (window.Poe) {
+                    fetchLiveData();
+                } else {
+                    simulateLiveDataUpdate();
+                }
+                showToast('Refreshing live data...');
+            }
+        });
+        document.querySelector('.live-indicator').style.cursor = 'pointer';
+
+        // Mode Switching
+        const modeBtns = document.querySelectorAll('.mode-btn');
+        const modeContainers = document.querySelectorAll('.mode-container');
+
+        modeBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const mode = btn.dataset.mode;
+
+                modeBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                modeContainers.forEach(container => {
+                    container.classList.remove('active');
+                    if (container.id === `${mode}-mode`) {
+                        container.classList.add('active');
+                    }
+                });
+
+                state.currentMode = mode;
+
+                if (mode === 'sense') {
+                    startSenseMode();
+                } else if (mode === 'explore') {
+                    initGlobe();
+                }
+
+                showToast(`Switched to ${mode.toUpperCase()} mode`);
+            });
+        });
+
+        // SENSE Mode - Particle System
+        function startSenseMode() {
+            const canvas = document.getElementById('sense-canvas');
+            const ctx = canvas.getContext('2d');
+
+            function resize() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            }
+            resize();
+            window.addEventListener('resize', resize);
+
+            const particles = [];
+            const particleCount = Math.min(200, Math.floor(window.innerWidth / 8));
+
+            const colors = ['#00f5d4', '#ff006e', '#8338ec', '#3a86ff', '#fb5607'];
+
+            for (let i = 0; i < particleCount; i++) {
+                particles.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    vx: (Math.random() - 0.5) * 2,
+                    vy: (Math.random() - 0.5) * 2,
+                    radius: Math.random() * 3 + 1,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    pulse: Math.random() * Math.PI * 2
+                });
+            }
+
+            let mouseX = canvas.width / 2;
+            let mouseY = canvas.height / 2;
+
+            canvas.addEventListener('mousemove', (e) => {
+                mouseX = e.clientX;
+                mouseY = e.clientY;
+            });
+
+            canvas.addEventListener('touchmove', (e) => {
+                if (e.touches.length > 0) {
+                    mouseX = e.touches[0].clientX;
+                    mouseY = e.touches[0].clientY;
+                }
+            });
+
+            function animate() {
+                ctx.fillStyle = 'rgba(10, 10, 15, 0.1)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                particles.forEach((p, i) => {
+                    // Attract to mouse
+                    const dx = mouseX - p.x;
+                    const dy = mouseY - p.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+
+                    if (dist < 200) {
+                        p.vx += dx * 0.0003;
+                        p.vy += dy * 0.0003;
+                    }
+
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.pulse += 0.05;
+
+                    // Boundary bounce
+                    if (p.x < 0 || p.x > canvas.width) p.vx *= -0.9;
+                    if (p.y < 0 || p.y > canvas.height) p.vy *= -0.9;
+
+                    // Friction
+                    p.vx *= 0.99;
+                    p.vy *= 0.99;
+
+                    // Draw connections
+                    for (let j = i + 1; j < particles.length; j++) {
+                        const p2 = particles[j];
+                        const dx2 = p2.x - p.x;
+                        const dy2 = p2.y - p.y;
+                        const dist2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
+
+                        if (dist2 < 100) {
+                            ctx.beginPath();
+                            ctx.strokeStyle = p.color;
+                            ctx.globalAlpha = (1 - dist2 / 100) * 0.3;
+                            ctx.lineWidth = 0.5;
+                            ctx.moveTo(p.x, p.y);
+                            ctx.lineTo(p2.x, p2.y);
+                            ctx.stroke();
+                            ctx.globalAlpha = 1;
+                        }
+                    }
+
+                    // Draw particle
+                    const pulseRadius = p.radius + Math.sin(p.pulse) * 1;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, pulseRadius, 0, Math.PI * 2);
+                    ctx.fillStyle = p.color;
+                    ctx.shadowBlur = 15;
+                    ctx.shadowColor = p.color;
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                });
+
+                // Update metrics
+                const entropy = 50 + Math.sin(Date.now() * 0.001) * 30;
+                const velocity = 30 + Math.cos(Date.now() * 0.0015) * 25;
+                const density = 60 + Math.sin(Date.now() * 0.0008) * 25;
+
+                document.getElementById('entropy-bar').style.width = entropy + '%';
+                document.getElementById('velocity-bar').style.width = velocity + '%';
+                document.getElementById('density-bar').style.width = density + '%';
+
+                if (state.currentMode === 'sense') {
+                    state.senseAnimation = requestAnimationFrame(animate);
+                }
+            }
+
+            if (state.senseAnimation) {
+                cancelAnimationFrame(state.senseAnimation);
+            }
+            animate();
+        }
+
+        // DECIDE Mode - Charts
+        function initDashboard() {
+            // Correlation Matrix
+            const matrix = document.getElementById('correlation-matrix');
+            const correlations = [
+                [1.0, 0.72, 0.45, 0.33],
+                [0.72, 1.0, 0.58, 0.41],
+                [0.45, 0.58, 1.0, 0.67],
+                [0.33, 0.41, 0.67, 1.0]
+            ];
+
+            matrix.innerHTML = '';
+            correlations.forEach((row, i) => {
+                row.forEach((val, j) => {
+                    const cell = document.createElement('div');
+                    cell.className = 'correlation-cell';
+                    cell.textContent = val.toFixed(2);
+
+                    // Color based on correlation
+                    const hue = val > 0.7 ? 160 : val > 0.5 ? 220 : val > 0.3 ? 270 : 350;
+                    const lightness = 30 + val * 30;
+                    cell.style.background = `hsl(${hue}, 70%, ${lightness}%)`;
+
+                    matrix.appendChild(cell);
+                });
+            });
+
+            // Alerts List
+            const alertsList = document.getElementById('alerts-list');
+            alertsList.innerHTML = '';
+            state.alerts.forEach(alert => {
+                const item = document.createElement('div');
+                item.className = `alert-item ${alert.type}`;
+                item.innerHTML = `
+                    <div class="alert-icon">${alert.type === 'critical' ? '!' : alert.type === 'warning' ? '⚠' : 'i'}</div>
+                    <div class="alert-content">
+                        <div class="alert-title">${alert.title}</div>
+                        <div class="alert-desc">${alert.desc}</div>
+                    </div>
+                    <div class="alert-time">${alert.time}</div>
+                `;
+                alertsList.appendChild(item);
+            });
+
+            // Draw Timeline Chart
+            drawTimelineChart();
+
+            // Draw Topic Chart
+            drawTopicChart();
+        }
+
+        function drawTimelineChart() {
+            const canvas = document.getElementById('timeline-chart');
+            if (!canvas) return;
+
+            const ctx = canvas.getContext('2d');
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+
+            const padding = 40;
+            const width = canvas.width - padding * 2;
+            const height = canvas.height - padding * 2;
+
+            // Data
+            const data = [65, 72, 68, 75, 82, 78, 74];
+            const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+            // Draw grid
+            ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 5; i++) {
+                const y = padding + (height / 5) * i;
+                ctx.beginPath();
+                ctx.moveTo(padding, y);
+                ctx.lineTo(canvas.width - padding, y);
+                ctx.stroke();
+            }
+
+            // Draw line
+            const gradient = ctx.createLinearGradient(0, 0, canvas.width, 0);
+            gradient.addColorStop(0, '#00f5d4');
+            gradient.addColorStop(0.5, '#3a86ff');
+            gradient.addColorStop(1, '#8338ec');
+
+            ctx.strokeStyle = gradient;
+            ctx.lineWidth = 3;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.beginPath();
+
+            data.forEach((val, i) => {
+                const x = padding + (width / (data.length - 1)) * i;
+                const y = padding + height - (val / 100) * height;
+
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+            ctx.stroke();
+
+            // Draw points
+            data.forEach((val, i) => {
+                const x = padding + (width / (data.length - 1)) * i;
+                const y = padding + height - (val / 100) * height;
+
+                ctx.beginPath();
+                ctx.arc(x, y, 5, 0, Math.PI * 2);
+                ctx.fillStyle = '#00f5d4';
+                ctx.fill();
+
+                // Label
+                ctx.fillStyle = '#8888a0';
+                ctx.font = '10px JetBrains Mono';
+                ctx.textAlign = 'center';
+                ctx.fillText(labels[i], x, canvas.height - 10);
+            });
+        }
+
+        function drawTopicChart() {
+            const canvas = document.getElementById('topic-chart');
+            if (!canvas) return;
+
+            const ctx = canvas.getContext('2d');
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const radius = Math.min(centerX, centerY) - 40;
+
+            const data = [
+                { label: 'Tech', value: 35, color: '#00f5d4' },
+                { label: 'Finance', value: 25, color: '#3a86ff' },
+                { label: 'Politics', value: 20, color: '#8338ec' },
+                { label: 'Entertainment', value: 20, color: '#ff006e' }
+            ];
+
+            let startAngle = -Math.PI / 2;
+
+            data.forEach((item, i) => {
+                const sliceAngle = (item.value / 100) * Math.PI * 2;
+
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, radius, startAngle, startAngle + sliceAngle);
+                ctx.closePath();
+                ctx.fillStyle = item.color;
+                ctx.fill();
+
+                // Label
+                const labelAngle = startAngle + sliceAngle / 2;
+                const labelX = centerX + Math.cos(labelAngle) * (radius * 0.65);
+                const labelY = centerY + Math.sin(labelAngle) * (radius * 0.65);
+
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 11px JetBrains Mono';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(`${item.value}%`, labelX, labelY);
+
+                startAngle += sliceAngle;
+            });
+
+            // Center hole
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius * 0.4, 0, Math.PI * 2);
+            ctx.fillStyle = '#12121a';
+            ctx.fill();
+        }
+
+        // EXPLORE Mode - 3D Globe
+        function initGlobe() {
+            const container = document.getElementById('globe-container');
+            if (!container || state.globeScene) return;
+
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setClearColor(0x0a0a0f, 1);
+            container.appendChild(renderer.domElement);
+
+            // Globe
+            const globeGeometry = new THREE.SphereGeometry(5, 64, 64);
+            const globeMaterial = new THREE.MeshPhongMaterial({
+                color: 0x1a1a25,
+                emissive: 0x0a0a0f,
+                specular: 0x333344,
+                shininess: 10,
+                wireframe: false
+            });
+            const globe = new THREE.Mesh(globeGeometry, globeMaterial);
+            scene.add(globe);
+
+            // Wireframe overlay
+            const wireGeometry = new THREE.SphereGeometry(5.02, 32, 32);
+            const wireMaterial = new THREE.MeshBasicMaterial({
+                color: 0x00f5d4,
+                wireframe: true,
+                transparent: true,
+                opacity: 0.08
+            });
+            const wireframe = new THREE.Mesh(wireGeometry, wireMaterial);
+            scene.add(wireframe);
+
+            // Data points
+            const pointsGroup = new THREE.Group();
+            const locations = [
+                { lat: 40.7, lon: -74, color: 0x00f5d4 },
+                { lat: 51.5, lon: -0.1, color: 0x3a86ff },
+                { lat: 35.7, lon: 139.7, color: 0x8338ec },
+                { lat: -23.5, lon: -46.6, color: 0xfb5607 },
+                { lat: 25.2, lon: 55.3, color: 0xff006e },
+                { lat: 37.5, lon: 127, color: 0x00f5d4 },
+                { lat: 19.4, lon: -99.1, color: 0xfb5607 },
+                { lat: 1.3, lon: 103.8, color: 0x8338ec }
+            ];
+
+            locations.forEach(loc => {
+                const phi = (90 - loc.lat) * (Math.PI / 180);
+                const theta = (loc.lon + 180) * (Math.PI / 180);
+
+                const x = -5.1 * Math.sin(phi) * Math.cos(theta);
+                const y = 5.1 * Math.cos(phi);
+                const z = 5.1 * Math.sin(phi) * Math.sin(theta);
+
+                const pointGeometry = new THREE.SphereGeometry(0.12, 16, 16);
+                const pointMaterial = new THREE.MeshBasicMaterial({ color: loc.color });
+                const point = new THREE.Mesh(pointGeometry, pointMaterial);
+                point.position.set(x, y, z);
+                pointsGroup.add(point);
+
+                // Glow
+                const glowGeometry = new THREE.SphereGeometry(0.25, 16, 16);
+                const glowMaterial = new THREE.MeshBasicMaterial({
+                    color: loc.color,
+                    transparent: true,
+                    opacity: 0.3
+                });
+                const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+                glow.position.set(x, y, z);
+                pointsGroup.add(glow);
+            });
+            scene.add(pointsGroup);
+
+            // Lights
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(5, 3, 5);
+            scene.add(directionalLight);
+
+            camera.position.z = 12;
+
+            // Mouse interaction
+            let isDragging = false;
+            let previousMousePosition = { x: 0, y: 0 };
+            let targetRotation = { x: 0.001, y: 0.003 };
+
+            container.addEventListener('mousedown', () => isDragging = true);
+            container.addEventListener('mouseup', () => isDragging = false);
+            container.addEventListener('mouseleave', () => isDragging = false);
+
+            container.addEventListener('mousemove', (e) => {
+                if (isDragging) {
+                    const deltaX = e.clientX - previousMousePosition.x;
+                    const deltaY = e.clientY - previousMousePosition.y;
+
+                    targetRotation.y = deltaX * 0.005;
+                    targetRotation.x = deltaY * 0.005;
+                }
+                previousMousePosition = { x: e.clientX, y: e.clientY };
+            });
+
+            // Touch support
+            container.addEventListener('touchstart', (e) => {
+                isDragging = true;
+                if (e.touches.length > 0) {
+                    previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                }
+            });
+            container.addEventListener('touchend', () => isDragging = false);
+            container.addEventListener('touchmove', (e) => {
+                if (isDragging && e.touches.length > 0) {
+                    const deltaX = e.touches[0].clientX - previousMousePosition.x;
+                    const deltaY = e.touches[0].clientY - previousMousePosition.y;
+
+                    targetRotation.y = deltaX * 0.005;
+                    targetRotation.x = deltaY * 0.005;
+
+                    previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                }
+            });
+
+            // Animation
+            function animate() {
+                requestAnimationFrame(animate);
+
+                globe.rotation.y += targetRotation.y;
+                wireframe.rotation.y += targetRotation.y;
+                pointsGroup.rotation.y += targetRotation.y;
+
+                targetRotation.y *= 0.95;
+                targetRotation.y += 0.001;
+
+                renderer.render(scene, camera);
+            }
+            animate();
+
+            // Resize handler
+            function onResize() {
+                camera.aspect = container.clientWidth / container.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, container.clientHeight);
+            }
+            window.addEventListener('resize', onResize);
+
+            state.globeScene = scene;
+
+            // Region list
+            initRegionList();
+        }
+
+        function initRegionList() {
+            const regionList = document.getElementById('region-list');
+            regionList.innerHTML = '';
+
+            state.regions.forEach(region => {
+                const item = document.createElement('div');
+                item.className = 'region-item';
+                const trendClass = region.trend.startsWith('+') ? 'positive' : 'negative';
+                const trendArrow = region.trend.startsWith('+') ? '↑' : '↓';
+
+                item.innerHTML = `
+                    <div class="region-info">
+                        <div class="region-dot" style="color: ${region.color};"></div>
+                        <span class="region-name">${region.name}</span>
+                    </div>
+                    <div class="region-stats">
+                        <div class="region-sentiment" style="color: ${region.color};">${region.sentiment}</div>
+                        <div class="region-trend" style="color: ${trendClass === 'positive' ? '#00f5d4' : '#ff006e'};">
+                            ${trendArrow} ${region.trend}
+                        </div>
+                    </div>
+                `;
+                regionList.appendChild(item);
+            });
+        }
+
+        // Layer toggles
+        document.querySelectorAll('.layer-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.layer-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                showToast(`${btn.dataset.layer.toUpperCase()} layer activated`);
+            });
+        });
+
+        // AI Panel
+        const aiBtn = document.getElementById('ai-insights-btn');
+        const aiPanel = document.getElementById('ai-panel');
+        const aiPanelClose = document.getElementById('ai-panel-close');
+        const aiPanelContent = document.getElementById('ai-panel-content');
+
+        aiBtn.addEventListener('click', () => {
+            aiPanel.classList.add('visible');
+
+            // Simulate AI loading
+            aiPanelContent.innerHTML = `
+                <div class="ai-loading">
+                    <div class="ai-loading-dots">
+                        <span></span><span></span><span></span>
+                    </div>
+                    <span>Analyzing data patterns...</span>
+                </div>
+            `;
+
+            setTimeout(() => {
+                aiPanelContent.innerHTML = `
+                    <p><strong>Key Insight:</strong> Sentiment in the Tech sector has improved by <strong style="color: #00f5d4;">+12.4%</strong> over the past 24 hours, driven primarily by positive discussions around AI developments.</p>
+                    <br>
+                    <p><strong>Alert:</strong> Unusual bot activity detected in Finance discussions. Recommend monitoring for potential coordinated campaigns.</p>
+                    <br>
+                    <p><strong>Opportunity:</strong> Entertainment sentiment is trending positive. Consider increasing engagement in this vertical.</p>
+                `;
+            }, 2000);
+        });
+
+        aiPanelClose.addEventListener('click', () => {
+            aiPanel.classList.remove('visible');
+        });
+
+        // Toast
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toast-message');
+            toastMessage.textContent = message;
+            toast.classList.add('visible');
+
+            setTimeout(() => {
+                toast.classList.remove('visible');
+            }, 2500);
+        }
+
+        // Logo click - reset
+        document.querySelector('.logo').addEventListener('click', () => {
+            showToast('PulseWeave Dashboard refreshed');
+            // Reset to sense mode
+            document.querySelector('[data-mode="sense"]').click();
+        });
+
+        // VR Button
+        document.querySelector('.vr-btn').addEventListener('click', () => {
+            showToast('VR mode requires compatible headset');
+        });
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            startSenseMode();
+            initDashboard();
+            initLiveData();
+        });
+
+        // Handle window resize for charts
+        window.addEventListener('resize', () => {
+            if (state.currentMode === 'decide') {
+                drawTimelineChart();
+                drawTopicChart();
+            }
+        });
+    </script>
+</body>
+</html>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>PulseWeaveVerse</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='40' fill='none' stroke='%2300f5d4' stroke-width='4'/%3E%3Ccircle cx='50' cy='50' r='12' fill='%2300f5d4'/%3E%3C/svg%3E">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Outfit:wght@200;300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        :root {
+            --bg-void: #0a0a0f;
+            --bg-surface: #12121a;
+            --bg-elevated: #1a1a25;
+            --accent-pulse: #00f5d4;
+            --accent-heat: #ff006e;
+            --accent-data: #8338ec;
+            --accent-warn: #fb5607;
+            --accent-calm: #3a86ff;
+            --text-primary: #f0f0f5;
+            --text-secondary: #8888a0;
+            --text-muted: #555566;
+            --glow-pulse: 0 0 30px rgba(0, 245, 212, 0.4);
+            --glow-heat: 0 0 30px rgba(255, 0, 110, 0.4);
+            --border-subtle: rgba(255, 255, 255, 0.06);
+            --transition-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .dark {
+            --bg-void: #0a0a0f;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: var(--bg-void);
+            font-family: 'Outfit', sans-serif;
+            color: var(--text-primary);
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* App Container */
+        #app {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        /* Header */
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(180deg, rgba(10, 10, 15, 0.95) 0%, rgba(10, 10, 15, 0.8) 50%, transparent 100%);
+            pointer-events: none;
+        }
+
+        .header > * {
+            pointer-events: auto;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            transition: transform 0.3s var(--transition-smooth);
+        }
+
+        .logo:hover {
+            transform: scale(1.02);
+        }
+
+        .logo:active {
+            transform: scale(0.98);
+        }
+
+        .logo-icon {
+            width: 36px;
+            height: 36px;
+            position: relative;
+        }
+
+        .logo-icon::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border: 2px solid var(--accent-pulse);
+            border-radius: 50%;
+            animation: logoPulse 2s ease-in-out infinite;
+        }
+
+        .logo-icon::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 12px;
+            height: 12px;
+            background: var(--accent-pulse);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: var(--glow-pulse);
+        }
+
+        @keyframes logoPulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.15); opacity: 0.7; }
+        }
+
+        .logo-text {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            font-weight: 500;
+            letter-spacing: 2px;
+            color: var(--text-primary);
+        }
+
+        .logo-text span {
+            color: var(--accent-pulse);
+        }
+
+        /* Mode Switcher */
+        .mode-switcher {
+            display: flex;
+            background: var(--bg-surface);
+            border-radius: 10px;
+            padding: 4px;
+            border: 1px solid var(--border-subtle);
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+        }
+
+        .mode-btn {
+            background: transparent;
+            border: none;
+            padding: 10px 20px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            font-weight: 500;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            border-radius: 7px;
+            transition: all 0.3s var(--transition-smooth);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .mode-btn::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 50%);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .mode-btn:hover {
+            color: var(--text-primary);
+            background: var(--bg-elevated);
+        }
+
+        .mode-btn:hover::before {
+            opacity: 1;
+        }
+
+        .mode-btn:active {
+            transform: scale(0.97);
+        }
+
+        .mode-btn.active {
+            background: var(--accent-pulse);
+            color: var(--bg-void);
+            box-shadow: 0 2px 12px rgba(0, 245, 212, 0.4);
+        }
+
+        .mode-btn.active[data-mode="sense"] {
+            background: linear-gradient(135deg, var(--accent-data), #6b21a8);
+            color: white;
+            box-shadow: 0 2px 12px rgba(131, 56, 236, 0.5);
+        }
+        .mode-btn.active[data-mode="decide"] {
+            background: linear-gradient(135deg, var(--accent-calm), #1d4ed8);
+            color: white;
+            box-shadow: 0 2px 12px rgba(58, 134, 255, 0.5);
+        }
+        .mode-btn.active[data-mode="explore"] {
+            background: linear-gradient(135deg, var(--accent-pulse), #0d9488);
+            color: var(--bg-void);
+            box-shadow: 0 2px 12px rgba(0, 245, 212, 0.5);
+        }
+
+        .mode-icon {
+            width: 16px;
+            height: 16px;
+            opacity: 0.9;
+            flex-shrink: 0;
+        }
+
+        /* Status Indicator */
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .live-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--accent-pulse);
+            background: rgba(0, 245, 212, 0.1);
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: 1px solid rgba(0, 245, 212, 0.2);
+        }
+
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--accent-pulse);
+            border-radius: 50%;
+            animation: livePulse 1.5s ease-in-out infinite;
+            box-shadow: 0 0 8px var(--accent-pulse);
+        }
+
+        @keyframes livePulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.8); }
+        }
+
+        .ai-btn {
+            background: linear-gradient(135deg, var(--accent-data), var(--accent-heat));
+            border: none;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            font-weight: 500;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s var(--transition-smooth);
+            box-shadow: 0 4px 16px rgba(131, 56, 236, 0.3);
+        }
+
+        .ai-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(131, 56, 236, 0.5);
+        }
+
+        .ai-btn:active {
+            transform: translateY(0) scale(0.98);
+        }
+
+        /* Mode Containers */
+        .mode-container {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.5s var(--transition-smooth), visibility 0.5s, transform 0.5s var(--transition-smooth);
+            transform: scale(0.98);
+        }
+
+        .mode-container.active {
+            opacity: 1;
+            visibility: visible;
+            transform: scale(1);
+        }
+
+        /* SENSE Mode - Generative Art */
+        #sense-mode {
+            background: var(--bg-void);
+        }
+
+        #sense-canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .sense-overlay {
+            position: absolute;
+            bottom: 24px;
+            left: 24px;
+            right: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            pointer-events: none;
+        }
+
+        .sense-metrics {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            background: rgba(18, 18, 26, 0.8);
+            backdrop-filter: blur(12px);
+            padding: 16px 20px;
+            border-radius: 12px;
+            border: 1px solid var(--border-subtle);
+        }
+
+        .sense-metric {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .sense-metric span:first-child {
+            width: 70px;
+        }
+
+        .metric-bar {
+            width: 100px;
+            height: 6px;
+            background: var(--bg-elevated);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .metric-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.5s var(--transition-smooth);
+        }
+
+        .sense-legend {
+            display: flex;
+            gap: 20px;
+            background: rgba(18, 18, 26, 0.8);
+            backdrop-filter: blur(12px);
+            padding: 12px 16px;
+            border-radius: 10px;
+            border: 1px solid var(--border-subtle);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            color: var(--text-muted);
+        }
+
+        .legend-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            box-shadow: 0 0 8px currentColor;
+        }
+
+        /* DECIDE Mode - Dashboard */
+        #decide-mode {
+            background: var(--bg-void);
+            padding: 80px 24px 24px;
+            overflow-y: auto;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: auto auto 1fr;
+            gap: 16px;
+            max-width: 1600px;
+            margin: 0 auto;
+            height: calc(100vh - 104px);
+        }
+
+        .card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: 14px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .card-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            font-weight: 500;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        .card-badge {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            padding: 4px 10px;
+            border-radius: 5px;
+            background: var(--bg-elevated);
+        }
+
+        .kpi-card {
+            grid-column: span 1;
+        }
+
+        .kpi-value {
+            font-family: 'Outfit', sans-serif;
+            font-size: 42px;
+            font-weight: 300;
+            line-height: 1;
+            margin-bottom: 8px;
+        }
+
+        .kpi-label {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .kpi-change {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            margin-top: 12px;
+            padding: 6px 10px;
+            border-radius: 6px;
+            width: fit-content;
+        }
+
+        .kpi-change.positive {
+            color: var(--accent-pulse);
+            background: rgba(0, 245, 212, 0.1);
+        }
+        .kpi-change.negative {
+            color: var(--accent-heat);
+            background: rgba(255, 0, 110, 0.1);
+        }
+        .kpi-change.neutral {
+            color: var(--text-secondary);
+            background: var(--bg-elevated);
+        }
+
+        .chart-card {
+            grid-column: span 2;
+        }
+
+        .chart-container {
+            flex: 1;
+            position: relative;
+            min-height: 200px;
+        }
+
+        .chart-canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .correlation-card {
+            grid-column: span 2;
+            grid-row: span 2;
+        }
+
+        .correlation-header-labels {
+            font-size: 10px;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            font-family: 'JetBrains Mono', monospace;
+            display: flex;
+            gap: 4px;
+        }
+
+        .correlation-header-labels span {
+            flex: 1;
+            text-align: center;
+        }
+
+        .correlation-matrix {
+            flex: 1;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+        }
+
+        .correlation-cell {
+            aspect-ratio: 1;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            font-weight: 500;
+            color: white;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .correlation-cell:hover {
+            transform: scale(1.08);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+            z-index: 1;
+        }
+
+        .alerts-card {
+            grid-column: span 2;
+            grid-row: span 2;
+        }
+
+        .alerts-list {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .alert-item {
+            display: flex;
+            gap: 12px;
+            padding: 14px;
+            background: var(--bg-elevated);
+            border-radius: 10px;
+            border-left: 4px solid;
+            animation: alertSlide 0.3s var(--transition-smooth);
+            cursor: pointer;
+            transition: transform 0.2s, background 0.2s;
+        }
+
+        .alert-item:hover {
+            transform: translateX(4px);
+            background: rgba(26, 26, 37, 0.8);
+        }
+
+        @keyframes alertSlide {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .alert-item.critical { border-color: var(--accent-heat); }
+        .alert-item.warning { border-color: var(--accent-warn); }
+        .alert-item.info { border-color: var(--accent-calm); }
+
+        .alert-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .alert-item.critical .alert-icon { background: rgba(255, 0, 110, 0.2); color: var(--accent-heat); }
+        .alert-item.warning .alert-icon { background: rgba(251, 86, 7, 0.2); color: var(--accent-warn); }
+        .alert-item.info .alert-icon { background: rgba(58, 134, 255, 0.2); color: var(--accent-calm); }
+
+        .alert-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .alert-title {
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        .alert-desc {
+            font-size: 12px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .alert-time {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            color: var(--text-muted);
+            flex-shrink: 0;
+        }
+
+        /* EXPLORE Mode - 3D Globe */
+        #explore-mode {
+            background: var(--bg-void);
+        }
+
+        #globe-container {
+            width: 100%;
+            height: 100%;
+            cursor: grab;
+        }
+
+        #globe-container:active {
+            cursor: grabbing;
+        }
+
+        .explore-panel {
+            position: absolute;
+            top: 80px;
+            right: 24px;
+            width: 320px;
+            background: rgba(18, 18, 26, 0.92);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            padding: 20px;
+            max-height: calc(100vh - 120px);
+            overflow-y: auto;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+
+        .panel-section {
+            margin-bottom: 24px;
+        }
+
+        .panel-section:last-child {
+            margin-bottom: 0;
+        }
+
+        .panel-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            font-weight: 500;
+            letter-spacing: 2px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: 12px;
+        }
+
+        .region-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .region-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 14px;
+            background: var(--bg-elevated);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s var(--transition-smooth);
+            border: 1px solid transparent;
+        }
+
+        .region-item:hover {
+            background: var(--bg-surface);
+            transform: translateX(4px);
+            border-color: var(--border-subtle);
+        }
+
+        .region-item:active {
+            transform: translateX(2px) scale(0.99);
+        }
+
+        .region-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .region-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            box-shadow: 0 0 8px currentColor;
+        }
+
+        .region-name {
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .region-stats {
+            text-align: right;
+        }
+
+        .region-sentiment {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .region-trend {
+            font-size: 11px;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            justify-content: flex-end;
+        }
+
+        .data-layer-toggle {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .layer-btn {
+            flex: 1;
+            min-width: calc(50% - 4px);
+            padding: 12px 12px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-subtle);
+            border-radius: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s var(--transition-smooth);
+            text-align: center;
+        }
+
+        .layer-btn:hover {
+            border-color: var(--text-muted);
+            background: var(--bg-surface);
+            color: var(--text-primary);
+        }
+
+        .layer-btn:active {
+            transform: scale(0.97);
+        }
+
+        .layer-btn.active {
+            background: linear-gradient(135deg, var(--accent-pulse), #0d9488);
+            border-color: var(--accent-pulse);
+            color: var(--bg-void);
+            box-shadow: 0 2px 12px rgba(0, 245, 212, 0.3);
+        }
+
+        /* AI Insights Panel */
+        .ai-panel {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100%);
+            width: 90%;
+            max-width: 600px;
+            background: rgba(18, 18, 26, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            padding: 20px;
+            z-index: 90;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.4s var(--transition-smooth);
+            box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.4);
+        }
+
+        .ai-panel.visible {
+            opacity: 1;
+            visibility: visible;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .ai-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .ai-panel-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--accent-data);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .ai-panel-close {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 16px;
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .ai-panel-close:hover {
+            background: var(--accent-heat);
+            border-color: var(--accent-heat);
+            color: white;
+        }
+
+        .ai-panel-content {
+            font-size: 14px;
+            line-height: 1.7;
+            color: var(--text-secondary);
+        }
+
+        .ai-panel-content strong {
+            color: var(--text-primary);
+        }
+
+        .ai-loading {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .ai-loading-dots {
+            display: flex;
+            gap: 4px;
+        }
+
+        .ai-loading-dots span {
+            width: 6px;
+            height: 6px;
+            background: var(--accent-data);
+            border-radius: 50%;
+            animation: dotPulse 1.4s ease-in-out infinite;
+        }
+
+        .ai-loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .ai-loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes dotPulse {
+            0%, 80%, 100% { transform: scale(0.6); opacity: 0.5; }
+            40% { transform: scale(1); opacity: 1; }
+        }
+
+        /* VR Mode Indicator */
+        .vr-indicator {
+            position: absolute;
+            bottom: 24px;
+            left: 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            background: rgba(18, 18, 26, 0.92);
+            backdrop-filter: blur(12px);
+            border-radius: 10px;
+            border: 1px solid var(--border-subtle);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .vr-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .vr-status-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--accent-pulse);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--accent-pulse);
+        }
+
+        .vr-btn {
+            background: linear-gradient(135deg, var(--accent-pulse), #0d9488);
+            border: none;
+            padding: 10px 16px;
+            border-radius: 8px;
+            color: var(--bg-void);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s var(--transition-smooth);
+            box-shadow: 0 2px 12px rgba(0, 245, 212, 0.3);
+        }
+
+        .vr-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(0, 245, 212, 0.5);
+        }
+
+        .vr-btn:active {
+            transform: translateY(0) scale(0.98);
+        }
+
+        /* Toast Notification */
+        .toast {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            padding: 14px 24px;
+            border-radius: 10px;
+            font-size: 13px;
+            color: var(--text-primary);
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s var(--transition-smooth);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .toast.visible {
+            opacity: 1;
+            visibility: visible;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .toast-icon {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 245, 212, 0.2);
+            color: var(--accent-pulse);
+            font-size: 12px;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .dashboard-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .explore-panel {
+                width: 280px;
+                right: 16px;
+            }
+
+            .mode-btn span {
+                display: none;
+            }
+
+            .mode-btn {
+                padding: 10px 14px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header {
+                padding: 12px 16px;
+            }
+
+            .logo-text {
+                font-size: 11px;
+                letter-spacing: 1px;
+            }
+
+            .mode-switcher {
+                padding: 3px;
+            }
+
+            .mode-btn {
+                padding: 10px 14px;
+            }
+
+            .status {
+                gap: 8px;
+            }
+
+            .live-indicator {
+                display: none;
+            }
+
+            .ai-btn span {
+                display: none;
+            }
+
+            .ai-btn {
+                padding: 10px;
+            }
+
+            #decide-mode {
+                padding: 72px 16px 16px;
+            }
+
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+                height: auto;
+                padding-bottom: 24px;
+                gap: 12px;
+            }
+
+            .kpi-card, .chart-card, .correlation-card, .alerts-card {
+                grid-column: span 1;
+                grid-row: span 1;
+            }
+
+            .explore-panel {
+                position: fixed;
+                top: auto;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                width: 100%;
+                max-height: 50vh;
+                border-radius: 20px 20px 0 0;
+                padding: 24px 20px;
+            }
+
+            .ai-panel {
+                width: calc(100% - 32px);
+                bottom: 16px;
+                border-radius: 14px;
+            }
+
+            .sense-overlay {
+                flex-direction: column;
+                gap: 12px;
+                bottom: 16px;
+                left: 16px;
+                right: 16px;
+            }
+
+            .sense-metrics, .sense-legend {
+                width: 100%;
+            }
+
+            .sense-legend {
+                justify-content: center;
+                flex-wrap: wrap;
+                gap: 12px;
+            }
+
+            .vr-indicator {
+                bottom: 16px;
+                left: 16px;
+            }
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-surface);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--text-muted);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-secondary);
+        }
+
+        /* Focus states for accessibility */
+        button:focus-visible,
+        .region-item:focus-visible,
+        .correlation-cell:focus-visible {
+            outline: 2px solid var(--accent-pulse);
+            outline-offset: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <div class="logo-icon"></div>
+                <div class="logo-text">PULSE<span>WEAVE</span></div>
+            </div>
+
+            <div class="mode-switcher">
+                <button class="mode-btn active" data-mode="sense">
+                    <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <path d="M12 6v6l4 2"/>
+                    </svg>
+                    <span>SENSE</span>
+                </button>
+                <button class="mode-btn" data-mode="decide">
+                    <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="18" height="18" rx="2"/>
+                        <path d="M3 9h18M9 21V9"/>
+                    </svg>
+                    <span>DECIDE</span>
+                </button>
+                <button class="mode-btn" data-mode="explore">
+                    <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                    </svg>
+                    <span>EXPLORE</span>
+                </button>
+            </div>
+
+            <div class="status">
+                <div class="live-indicator">
+                    <div class="live-dot"></div>
+                    <span>LIVE DATA</span>
+                </div>
+                <button class="ai-btn" id="ai-insights-btn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/>
+                        <path d="M9.5 14a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0zM15.5 14a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0z"/>
+                    </svg>
+                    <span>AI INSIGHTS</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- SENSE Mode -->
+        <div id="sense-mode" class="mode-container active">
+            <canvas id="sense-canvas"></canvas>
+            <div class="sense-overlay">
+                <div class="sense-metrics">
+                    <div class="sense-metric">
+                        <span>ENTROPY</span>
+                        <div class="metric-bar">
+                            <div class="metric-fill" id="entropy-bar" style="width: 65%; background: var(--accent-pulse);"></div>
+                        </div>
+                    </div>
+                    <div class="sense-metric">
+                        <span>VELOCITY</span>
+                        <div class="metric-bar">
+                            <div class="metric-fill" id="velocity-bar" style="width: 42%; background: var(--accent-heat);"></div>
+                        </div>
+                    </div>
+                    <div class="sense-metric">
+                        <span>DENSITY</span>
+                        <div class="metric-bar">
+                            <div class="metric-fill" id="density-bar" style="width: 78%; background: var(--accent-data);"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="sense-legend">
+                    <div class="legend-item">
+                        <div class="legend-dot" style="color: var(--accent-pulse);"></div>
+                        <span>POSITIVE</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-dot" style="color: var(--accent-heat);"></div>
+                        <span>NEGATIVE</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-dot" style="color: var(--accent-data);"></div>
+                        <span>NEUTRAL</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- DECIDE Mode -->
+        <div id="decide-mode" class="mode-container">
+            <div class="dashboard-grid">
+                <div class="card kpi-card">
+                    <div class="card-header">
+                        <span class="card-title">Sentiment Score</span>
+                        <span class="card-badge" style="color: var(--accent-pulse);">LIVE</span>
+                    </div>
+                    <div class="kpi-value" style="color: var(--accent-pulse);" id="kpi-sentiment">74.2</div>
+                    <div class="kpi-label">Overall positive trend</div>
+                    <div class="kpi-change positive">
+                        <span>▲</span>
+                        <span>+8.3% from last hour</span>
+                    </div>
+                </div>
+
+                <div class="card kpi-card">
+                    <div class="card-header">
+                        <span class="card-title">Volume</span>
+                        <span class="card-badge">24H</span>
+                    </div>
+                    <div class="kpi-value" id="kpi-volume">2.4M</div>
+                    <div class="kpi-label">Total mentions tracked</div>
+                    <div class="kpi-change positive">
+                        <span>▲</span>
+                        <span>+12.5% vs yesterday</span>
+                    </div>
+                </div>
+
+                <div class="card kpi-card">
+                    <div class="card-header">
+                        <span class="card-title">Engagement</span>
+                        <span class="card-badge">AVG</span>
+                    </div>
+                    <div class="kpi-value" style="color: var(--accent-calm);" id="kpi-engagement">156K</div>
+                    <div class="kpi-label">Interactions per post</div>
+                    <div class="kpi-change neutral">
+                        <span>→</span>
+                        <span>Stable this week</span>
+                    </div>
+                </div>
+
+                <div class="card kpi-card">
+                    <div class="card-header">
+                        <span class="card-title">Alerts</span>
+                        <span class="card-badge" style="color: var(--accent-heat);">3 NEW</span>
+                    </div>
+                    <div class="kpi-value" style="color: var(--accent-warn);" id="kpi-alerts">7</div>
+                    <div class="kpi-label">Require attention</div>
+                    <div class="kpi-change negative">
+                        <span>▲</span>
+                        <span>+2 in last hour</span>
+                    </div>
+                </div>
+
+                <div class="card chart-card">
+                    <div class="card-header">
+                        <span class="card-title">Sentiment Timeline</span>
+                        <span class="card-badge">7 DAYS</span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="timeline-chart" class="chart-canvas"></canvas>
+                    </div>
+                </div>
+
+                <div class="card correlation-card">
+                    <div class="card-header">
+                        <span class="card-title">Topic Correlation</span>
+                        <span class="card-badge">MATRIX</span>
+                    </div>
+                    <div class="correlation-header-labels">
+                        <span>TECH</span>
+                        <span>FIN</span>
+                        <span>POL</span>
+                        <span>ENT</span>
+                    </div>
+                    <div class="correlation-matrix" id="correlation-matrix"></div>
+                </div>
+
+                <div class="card chart-card">
+                    <div class="card-header">
+                        <span class="card-title">Topic Distribution</span>
+                        <span class="card-badge">NOW</span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="topic-chart" class="chart-canvas"></canvas>
+                    </div>
+                </div>
+
+                <div class="card alerts-card">
+                    <div class="card-header">
+                        <span class="card-title">Active Alerts</span>
+                        <span class="card-badge" style="color: var(--accent-heat);">CRITICAL: 2</span>
+                    </div>
+                    <div class="alerts-list" id="alerts-list"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- EXPLORE Mode -->
+        <div id="explore-mode" class="mode-container">
+            <div id="globe-container"></div>
+
+            <div class="explore-panel">
+                <div class="panel-section">
+                    <div class="panel-title">REGIONAL SENTIMENT</div>
+                    <div class="region-list" id="region-list"></div>
+                </div>
+
+                <div class="panel-section">
+                    <div class="panel-title">DATA LAYERS</div>
+                    <div class="data-layer-toggle">
+                        <button class="layer-btn active" data-layer="sentiment">SENTIMENT</button>
+                        <button class="layer-btn" data-layer="volume">VOLUME</button>
+                        <button class="layer-btn" data-layer="trends">TRENDS</button>
+                        <button class="layer-btn" data-layer="alerts">ALERTS</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="vr-indicator">
+                <div class="vr-status">
+                    <div class="vr-status-dot"></div>
+                    <span>VR READY</span>
+                </div>
+                <button class="vr-btn">ENTER VR</button>
+            </div>
+        </div>
+
+        <!-- AI Panel -->
+        <div class="ai-panel" id="ai-panel">
+            <div class="ai-panel-header">
+                <div class="ai-panel-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/>
+                    </svg>
+                    AI ANALYSIS
+                </div>
+                <button class="ai-panel-close" id="ai-panel-close">×</button>
+            </div>
+            <div class="ai-panel-content" id="ai-panel-content">
+                <div class="ai-loading">
+                    <div class="ai-loading-dots">
+                        <span></span><span></span><span></span>
+                    </div>
+                    <span>Analyzing data patterns...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast -->
+        <div class="toast" id="toast">
+            <div class="toast-icon">✓</div>
+            <span id="toast-message">Data refreshed</span>
+        </div>
+    </div>
+
+    <script>
+        // Dark mode detection
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+
+        // App State
+        const state = {
+            currentMode: 'sense',
+            senseAnimation: null,
+            globeScene: null,
+            particles: [],
             regions: [
                 { name: 'North America', sentiment: 78, trend: '+4.2%', color: '#00f5d4' },
                 { name: 'Europe', sentiment: 65, trend: '+1.8%', color: '#3a86ff' },
